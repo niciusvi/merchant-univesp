@@ -1,5 +1,14 @@
 venv/
+.venv/
 *.pyc
 __pycache__/
 db.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+staticfiles/
 .env
+
+# Documentos do PI com dados pessoais (nomes + RA): nunca versionar.
+docs/*.pdf
+docs/*.docx

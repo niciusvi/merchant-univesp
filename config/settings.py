@@ -12,24 +12,37 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 
 from pathlib import Path
 
+from config import ambiente
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Toda configuração que muda por ambiente vem de variáveis de ambiente
+# (ver .env.example). O .env, ignorado pelo git, só completa o que o
+# sistema/contêiner ainda não definiu.
+ambiente.carregar_arquivo_env(BASE_DIR / '.env')
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
+DEBUG = ambiente.ler_booleano('DJANGO_DEBUG', padrao=False)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-hzp%bptpg!n0rr&zxfuq9%^lafh$2may3(lsz&$)i@aq(ow2)o'
+# Em produção (DEBUG=0) o valor de exemplo do .env.example é recusado.
+SECRET_KEY = ambiente.exigir_segredo_forte(
+    'DJANGO_SECRET_KEY', ambiente.ler_texto('DJANGO_SECRET_KEY'), DEBUG
+)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# 127.0.0.1 entra sempre: é por onde o healthcheck do contêiner chama a app.
+ALLOWED_HOSTS = ambiente.ler_lista('DJANGO_ALLOWED_HOSTS', padrao=('localhost',)) + ['127.0.0.1']
 
-ALLOWED_HOSTS = ['*']
+# Origens (https://dominio) autorizadas a enviar formulários.
+CSRF_TRUSTED_ORIGINS = ambiente.ler_lista('DJANGO_CSRF_TRUSTED_ORIGINS')
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://pi2-mercado-767143858101.us-central1.run.app',
-]
+# Atrás de túnel/proxy o HTTPS termina antes do Django. Sem este cabeçalho ele
+# acha que a requisição veio por HTTP e recusa os POSTs ("Origin checking failed").
+if ambiente.ler_booleano('DJANGO_ATRAS_DE_PROXY', padrao=False):
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Cookies só por HTTPS fora do desenvolvimento.
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 # Application definition
 
@@ -46,6 +59,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Serve os arquivos estáticos (admin) pelo próprio gunicorn, sem nginx.
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -80,7 +95,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        # Local: db.sqlite3 na raiz. Contêiner: /data/db.sqlite3 (volume).
+        'NAME': Path(ambiente.ler_texto('DJANGO_DB_PATH', padrao=str(BASE_DIR / 'db.sqlite3'))),
+        'OPTIONS': {
+            # Vários processos do gunicorn escrevem no mesmo arquivo: WAL deixa
+            # leituras e escrita conviverem, e o timeout espera a vez em vez de
+            # falhar com "database is locked".
+            'timeout': 20,
+            'transaction_mode': 'IMMEDIATE',
+            'init_command': 'PRAGMA journal_mode=WAL;',
+        },
     }
 }
 
@@ -120,12 +144,29 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+# Destino do `collectstatic` (feito na construção da imagem Docker).
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    # Comprimido (gzip) e servido pelo WhiteNoise; sem manifesto para não
+    # quebrar caso um template cite um arquivo não coletado.
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage'},
+}
+
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+# O projeto não envia e-mail. Em desenvolvimento o console mostra o que seria
+# enviado; em produção fica o SMTP padrão só para o `check --deploy` não acusar
+# backend de desenvolvimento (mail.E001).
 MAILERS = {
     'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+        'BACKEND': (
+            'django.core.mail.backends.console.EmailBackend'
+            if DEBUG
+            else 'django.core.mail.backends.smtp.EmailBackend'
+        ),
     },
 }

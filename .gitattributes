@@ -1,0 +1,2 @@
+# Scripts de shell sempre com LF: CRLF quebra o "#!/bin/sh" dentro do contêiner Linux.
+*.sh text eol=lf
