@@ -16,8 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 
 urlpatterns = [
+    # A raiz do site abre o painel; sem isto '/' respondia 404.
+    path('', RedirectView.as_view(pattern_name='painel'), name='raiz'),
     path('admin/', admin.site.urls),
     path("mercado/", include("mercado.urls")),
 ]
