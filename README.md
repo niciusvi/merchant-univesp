@@ -143,10 +143,21 @@ Para rodar os testes:
 python manage.py test
 ```
 
+## Login e usuários
+
+Todas as telas e a API exigem login. O primeiro administrador é criado na primeira subida a partir
+de `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_PASSWORD` e `DJANGO_SUPERUSER_EMAIL`. Só
+administradores abrem **Usuários** (cabeçalho) para cadastrar pessoas, definir a senha de alguém
+ou desativar um acesso; qualquer usuário troca a própria senha em **Minha senha**. A sessão dura
+30 dias no aparelho; **Sair** encerra antes.
+
 ## Principais rotas
 
 | Rota                      | Descrição                                 |
 | ------------------------- | ----------------------------------------- |
+| `/entrar/`, `/sair/`      | Login (única tela sem sessão) e saída     |
+| `/senha/`                 | Trocar a própria senha                    |
+| `/usuarios/`              | Gestão de usuários (só administrador)     |
 | `/`                       | Painel inicial (resumo e atalhos)         |
 | `/vencimentos/`           | Lotes a vencer; filtro `?dias=3|7|15|30`  |
 | `/stock/`                 | Consulta de estoque com próxima validade  |

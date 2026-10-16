@@ -14,19 +14,29 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+
 from django.contrib import admin
+from django.contrib.auth.decorators import login_not_required
 from django.urls import include, path
 from django.views.generic import RedirectView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path("admin/", admin.site.urls),
     # O app responde na raiz do subdomínio: painel em /, inventário em /stock/,
     # scanner em /scan/. O prefixo antigo /mercado/... redireciona (301) para os
     # links do Cloud Run e do README do grupo continuarem valendo.
-    path('mercado/', RedirectView.as_view(url='/', permanent=True, query_string=True)),
+    # login_not_required: redirecionar não expõe nada e evita 302 para o login.
     path(
-        'mercado/<path:resto>',
-        RedirectView.as_view(url='/%(resto)s', permanent=True, query_string=True),
+        "mercado/",
+        login_not_required(
+            RedirectView.as_view(url="/", permanent=True, query_string=True)
+        ),
     ),
-    path('', include('mercado.urls')),
+    path(
+        "mercado/<path:resto>",
+        login_not_required(
+            RedirectView.as_view(url="/%(resto)s", permanent=True, query_string=True)
+        ),
+    ),
+    path("", include("mercado.urls")),
 ]

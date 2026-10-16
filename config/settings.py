@@ -40,9 +40,18 @@ CSRF_TRUSTED_ORIGINS = ambiente.ler_lista('DJANGO_CSRF_TRUSTED_ORIGINS')
 if ambiente.ler_booleano('DJANGO_ATRAS_DE_PROXY', padrao=False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Cookies só por HTTPS fora do desenvolvimento.
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+# Cookies só por HTTPS fora do desenvolvimento. DJANGO_COOKIE_SEGURO=0 permite
+# testar por IP/HTTP na rede local com DEBUG desligado.
+COOKIE_SEGURO = ambiente.ler_booleano('DJANGO_COOKIE_SEGURO', padrao=not DEBUG)
+SESSION_COOKIE_SECURE = COOKIE_SEGURO
+CSRF_COOKIE_SECURE = COOKIE_SEGURO
+
+# Login obrigatório (LoginRequiredMiddleware). Sessão de 30 dias: o celular do
+# mercado não pede senha todo dia; 'Sair' encerra quando quiser.
+LOGIN_URL = 'entrar'
+LOGIN_REDIRECT_URL = 'painel'
+LOGOUT_REDIRECT_URL = 'entrar'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 
 # Application definition
 
@@ -65,6 +74,8 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Toda tela e a API exigem login; exceções levam @login_not_required.
+    'django.contrib.auth.middleware.LoginRequiredMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]

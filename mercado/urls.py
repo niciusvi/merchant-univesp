@@ -1,12 +1,27 @@
 from django.urls import path
-from . import views
-from . import views_painel
-from . import api
+
+from . import api, views, views_painel, views_usuarios
 
 urlpatterns = [
     # Tela inicial: vem antes de stock/ e scan/ na navegação.
     path("", views_painel.painel, name="painel"),
     path("vencimentos/", views_painel.listar_vencimentos, name="vencimentos"),
+    # Login e usuários (todas as outras rotas exigem sessão).
+    path("entrar/", views_usuarios.TelaDeLogin.as_view(), name="entrar"),
+    path("sair/", views_usuarios.Sair.as_view(), name="sair"),
+    path("senha/", views_usuarios.TrocarMinhaSenha.as_view(), name="senha_propria"),
+    path("usuarios/", views_usuarios.listar_usuarios, name="usuarios"),
+    path("usuarios/novo/", views_usuarios.criar_usuario, name="usuario_novo"),
+    path(
+        "usuarios/<int:usuario_id>/senha/",
+        views_usuarios.definir_senha_usuario,
+        name="usuario_senha",
+    ),
+    path(
+        "usuarios/<int:usuario_id>/ativo/",
+        views_usuarios.alternar_ativo_usuario,
+        name="usuario_ativo",
+    ),
     path("scan/", views.scan, name="scan"),
     path("lookup/<str:barcode>/", views.lookup_product, name="lookup_product"),
     path("stock/", views.stock, name="estoque"),
@@ -15,8 +30,7 @@ urlpatterns = [
     path("product/<str:barcode>/", views.product_lookup, name="product_lookup"),
     path("product/<str:barcode>/delete/", views.product_delete, name="product_delete"),
     path("finish-sale/", views.finish_sale, name="finish_sale"),
-
-    #api
+    # api
     path("api/produtos/", api.products, name="api_products"),
     path("api/produtos/<str:barcode>/", api.product_detail, name="api_product_detail"),
     path("api/estoque/", api.stock_list, name="api_stock_list"),

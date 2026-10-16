@@ -11,6 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from mercado.models import Product, ProductBatch
+from mercado.tests.apoio import entrar_como_usuario
 
 
 def criar_produto_com_lote(
@@ -30,6 +31,9 @@ def criar_produto_com_lote(
 
 
 class PainelViewTest(TestCase):
+    def setUp(self) -> None:
+        entrar_como_usuario(self.client)
+
     def test_painel_e_a_raiz_e_as_telas_ficam_em_stock_e_scan(self) -> None:
         # Requisito do subdomínio: painel em /, inventário em /stock/, scanner em /scan/.
         self.assertEqual(reverse("painel"), "/")
@@ -68,6 +72,9 @@ class PainelViewTest(TestCase):
 
 
 class VencimentosViewTest(TestCase):
+    def setUp(self) -> None:
+        entrar_como_usuario(self.client)
+
     def test_sem_parametro_usa_janela_de_7_dias(self) -> None:
         resposta = self.client.get(reverse("vencimentos"))
         self.assertEqual(resposta.status_code, 200)
@@ -97,6 +104,9 @@ class VencimentosViewTest(TestCase):
 
 
 class EstoqueComValidadeTest(TestCase):
+    def setUp(self) -> None:
+        entrar_como_usuario(self.client)
+
     def test_tabela_mostra_a_proxima_validade_ignorando_lotes_zerados(self) -> None:
         hoje = timezone.localdate()
         produto = criar_produto_com_lote("Leite", "1", hoje + timedelta(days=10))
