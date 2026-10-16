@@ -1,0 +1,24 @@
+[
+  {
+    "model": "mercado.product",
+    "pk": 8,
+    "fields": {
+      "name": "teste",
+      "brand": "marca1",
+      "barcode": "123",
+      "price": "50.00",
+      "min_quantity": 0
+    }
+  },
+  {
+    "model": "mercado.productbatch",
+    "pk": 6,
+    "fields": {
+      "product": 8,
+      "batch_number": "",
+      "expiration_date": null,
+      "quantity": 88,
+      "purchase_price": "10.00"
+    }
+  }
+]
