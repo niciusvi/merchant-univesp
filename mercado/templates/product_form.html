@@ -124,8 +124,11 @@
         if (!codigo) return;
 
         try {
+            // Rota gerada pelo Django, sem caminho fixo: o marcador vira o código lido.
             const response = await fetch(
-                `/mercado/lookup/${encodeURIComponent(codigo)}/`
+                "{% url 'lookup_product' barcode='CODIGO' %}".replace(
+                    "CODIGO", encodeURIComponent(codigo)
+                )
             );
 
             if (!response.ok) {

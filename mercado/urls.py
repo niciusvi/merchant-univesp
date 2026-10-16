@@ -8,7 +8,7 @@ urlpatterns = [
     path("", views_painel.painel, name="painel"),
     path("vencimentos/", views_painel.listar_vencimentos, name="vencimentos"),
     path("scan/", views.scan, name="scan"),
-    path("lookup/<str:barcode>/", views.lookup_product),
+    path("lookup/<str:barcode>/", views.lookup_product, name="lookup_product"),
     path("stock/", views.stock, name="estoque"),
     path("stock/new/", views.product_create, name="product_create"),
     path("product/<str:barcode>/edit/", views.product_edit, name="product_edit"),

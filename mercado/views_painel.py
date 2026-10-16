@@ -16,7 +16,7 @@ from . import vencimentos
 def painel(request: HttpRequest) -> HttpResponse:
     """Tela inicial: números do dia e atalhos para Inventário, Vencimentos e Scanner.
 
-    Exemplo: ``GET /mercado/``.
+    Exemplo: ``GET /``.
     """
     contexto = {
         "resumo": vencimentos.resumir_vencimentos(hoje=timezone.localdate()),
@@ -28,7 +28,7 @@ def painel(request: HttpRequest) -> HttpResponse:
 def listar_vencimentos(request: HttpRequest) -> HttpResponse:
     """Lotes que vencem dentro da janela ``?dias=`` (3, 7, 15 ou 30; padrão 7).
 
-    Exemplo: ``GET /mercado/vencimentos/?dias=15``.
+    Exemplo: ``GET /vencimentos/?dias=15``.
     """
     try:
         dias = vencimentos.interpretar_filtro_dias(request.GET.get("dias"))

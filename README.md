@@ -147,13 +147,14 @@ python manage.py test
 
 | Rota                      | Descrição                                 |
 | ------------------------- | ----------------------------------------- |
-| `/`                       | Redireciona para o painel                 |
-| `/mercado/`               | Painel inicial (resumo e atalhos)         |
-| `/mercado/vencimentos/`   | Lotes a vencer; filtro `?dias=3|7|15|30`  |
-| `/mercado/stock/`         | Consulta de estoque com próxima validade  |
-| `/mercado/stock/new/`     | Cadastro de produto e primeiro lote       |
-| `/mercado/scan/`          | Página de leitura de códigos de barras    |
-| `/mercado/lookup/CODIGO/` | Consulta de produto pelo código de barras |
+| `/`                       | Painel inicial (resumo e atalhos)         |
+| `/vencimentos/`           | Lotes a vencer; filtro `?dias=3|7|15|30`  |
+| `/stock/`                 | Consulta de estoque com próxima validade  |
+| `/stock/new/`             | Cadastro de produto e primeiro lote       |
+| `/scan/`                  | Página de leitura de códigos de barras    |
+| `/lookup/CODIGO/`         | Consulta de produto pelo código de barras |
+| `/api/...`                | API JSON (produtos, estoque, vendas, caixa) |
+| `/mercado/...`            | Prefixo antigo; redireciona (301) para a raiz |
 
 ## Consulta de produtos
 

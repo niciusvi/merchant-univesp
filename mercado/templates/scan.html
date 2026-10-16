@@ -290,7 +290,8 @@ function addBarcode(barcode) {
         return;
     }
 
-    fetch(`/mercado/product/${encodeURIComponent(barcode)}/`)
+    // Rota gerada pelo Django, sem caminho fixo: o marcador vira o código lido.
+    fetch("{% url 'product_lookup' barcode='CODIGO' %}".replace("CODIGO", encodeURIComponent(barcode)))
         .then(response => {
             if (!response.ok) {
                 throw new Error("Falha ao consultar o produto.");
@@ -465,7 +466,7 @@ function finishSale() {
     }
 
     // Envia os códigos e as quantidades para a rota de finalização.
-    fetch("/mercado/finish-sale/", {
+    fetch("{% url 'finish_sale' %}", {
 
         method: "POST",
 

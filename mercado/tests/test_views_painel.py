@@ -30,9 +30,28 @@ def criar_produto_com_lote(
 
 
 class PainelViewTest(TestCase):
-    def test_raiz_do_site_redireciona_para_o_painel(self) -> None:
-        resposta = self.client.get("/")
-        self.assertRedirects(resposta, reverse("painel"), fetch_redirect_response=False)
+    def test_painel_e_a_raiz_e_as_telas_ficam_em_stock_e_scan(self) -> None:
+        # Requisito do subdomínio: painel em /, inventário em /stock/, scanner em /scan/.
+        self.assertEqual(reverse("painel"), "/")
+        self.assertEqual(reverse("estoque"), "/stock/")
+        self.assertEqual(reverse("scan"), "/scan/")
+        self.assertEqual(self.client.get("/").status_code, 200)
+
+    def test_prefixo_antigo_mercado_redireciona_para_a_raiz(self) -> None:
+        # Links antigos (Cloud Run, README do grupo) continuam funcionando.
+        resposta = self.client.get("/mercado/vencimentos/?dias=3")
+        self.assertRedirects(
+            resposta,
+            "/vencimentos/?dias=3",
+            status_code=301,
+            fetch_redirect_response=False,
+        )
+        self.assertRedirects(
+            self.client.get("/mercado/"),
+            "/",
+            status_code=301,
+            fetch_redirect_response=False,
+        )
 
     def test_painel_tem_atalhos_para_estoque_vencimentos_e_scanner(self) -> None:
         resposta = self.client.get(reverse("painel"))
