@@ -1,0 +1,50 @@
+# Stack do Portainer (CE) criada a partir deste repositório.
+#
+# Regras herdadas do ADR-002 do projeto:
+# - só `image:` (o Portainer CE não constrói imagem de forma confiável); quem
+#   constrói é o GitHub Actions (.github/workflows/ci.yml) e publica no GHCR;
+# - nenhum bind mount (o repositório é clonado DENTRO do contêiner do Portainer,
+#   então `./arquivo` não existe no servidor); dado vai em volume nomeado;
+# - toda variável listada em `environment:`, porque o que se cadastra na tela da
+#   stack NÃO chega sozinho ao contêiner; `${VAR:?}` barra o deploy sem as obrigatórias.
+#
+# Variáveis: ver .env.example. Nenhum endereço real fica neste arquivo.
+
+services:
+  mercado:
+    image: ghcr.io/${DONO_DAS_IMAGENS:-niciusvi}/merchant-univesp:${IMAGEM_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:?defina DJANGO_SECRET_KEY nas variaveis da stack}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-0}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:?defina DJANGO_ALLOWED_HOSTS com o dominio publico}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:?defina DJANGO_CSRF_TRUSTED_ORIGINS com https://dominio}
+      # O túnel termina o HTTPS; sem isto o Django recusa os formulários (CSRF).
+      DJANGO_ATRAS_DE_PROXY: ${DJANGO_ATRAS_DE_PROXY:-1}
+      # Banco novo, no volume abaixo. A carga inicial vem de mercado/fixtures/.
+      DJANGO_DB_PATH: /data/db.sqlite3
+      DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
+      DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      TZ: ${TZ:-America/Sao_Paulo}
+    ports:
+      # Porta no servidor para a qual o túnel/proxy aponta; dentro é sempre 8000.
+      - "${MERCADO_PORTA:-8080}:8000"
+    volumes:
+      - dados_mercado:/data
+    healthcheck:
+      # Usa o Python da própria imagem (não há curl). 127.0.0.1 está sempre em ALLOWED_HOSTS.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/mercado/', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  # Sobrevive a "Pull and redeploy". Apagar o volume = apagar o banco.
+  dados_mercado:

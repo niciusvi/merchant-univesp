@@ -1,4 +1,13 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
 .git/
+.github/
+.env
+db.sqlite3
+*.sqlite3*
+staticfiles/
+docs/
+mercado/tests/
+config/tests/
