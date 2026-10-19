@@ -1,11 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
-from .models import Product, ProductBatch
+from .models import Product, ProductBatch, Sale, SaleItems, CashMovement
 from django.db.models import Min, Q, QuerySet, Sum, Value
 from django.db.models.functions import Coalesce
 from django.db import transaction
 from django.utils import timezone
 from datetime import datetime
+from decimal import Decimal
 import requests
 import json
 
@@ -33,7 +34,6 @@ def product_lookup(request, barcode):
         })
 
 # Exclui um produto do estoque.
-# Exclui um produto do estoque.
 def product_delete(request, barcode):
 
     if request.method != "POST":
@@ -59,7 +59,14 @@ def product_delete(request, barcode):
 
     return redirect("estoque")
 
-# Finalização da venda, com baixa de estoque por lote.
+class SaleError(Exception):
+    def __init__(self, message, status=400):
+        self.message = message
+        self.status = status
+        super().__init__(message)
+
+
+# Finalização da venda, com baixa de estoque por lote e registro de venda
 def finish_sale(request):
 
     if request.method != "POST":
@@ -78,24 +85,27 @@ def finish_sale(request):
 
         with transaction.atomic():
 
+            # Cria o registro da venda.
+            sale = Sale.objects.create()
+            total = Decimal("0.00")
+
             for item in products:
 
                 barcode = item.get("barcode")
                 quantity = item.get("quantity")
 
                 if not barcode or not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
-                    return JsonResponse({
-                        "error": "Produto ou quantidade inválida."
-                    }, status=400)
+                    raise SaleError("Produto ou quantidade inválida.")
 
                 product = Product.objects.filter(
                     barcode=barcode
                 ).first()
 
                 if product is None:
-                    return JsonResponse({
-                        "error": f"Produto com código {barcode} não encontrado."
-                    }, status=404)
+                    raise SaleError(
+                        f"Produto com código {barcode} não encontrado.",
+                        status=404
+                    )
 
                 # Bloqueia os lotes deste produto durante a operação.
                 batches = list(
@@ -105,9 +115,7 @@ def finish_sale(request):
                 )
 
                 # Primeiro: lotes sem identificação e sem validade.
-                # Depois: lotes com validade, do vencimento mais próximo
-                # para o mais distante.
-                # Por último: lotes identificados sem validade.
+                # Depois: lotes com validade, do vencimento mais próximo para o mais distante.
                 batches.sort(
                     key=lambda batch: (
                         0 if not batch.batch_number and not batch.expiration_date else
@@ -131,15 +139,25 @@ def finish_sale(request):
                 )
 
                 if available_quantity < quantity:
-                    return JsonResponse({
-                        "error": (
-                            f"Estoque disponível insuficiente para "
-                            f"{product.name}."
-                        )
-                    }, status=400)
+                    raise SaleError(
+                        f"Estoque disponível insuficiente para "
+                        f"{product.name}."
+                    )
 
+
+                # Registra o item vendido.
+                SaleItems.objects.create(
+                    sale=sale,
+                    product=product,
+                    quantity_sold=quantity,
+                    unit_price=product.price
+                )
+                
+                total += product.price * quantity
+                
                 remaining = quantity
 
+                # Baixa o estoque dos lotes na ordem definida.
                 for batch in batches:
 
                     if batch.expiration_date is not None and batch.expiration_date < today:
@@ -148,8 +166,7 @@ def finish_sale(request):
                     if remaining <= 0:
                         break
 
-                    # Retira do lote a menor quantidade entre
-                    # o necessário e o disponível.
+                    # Retira do lote a menor quantidade entre necessário e o disponível.
                     deducted = min(batch.quantity, remaining)
 
                     batch.quantity -= deducted
@@ -157,19 +174,31 @@ def finish_sale(request):
 
                     remaining -= deducted
 
-        return JsonResponse({
-            "success": True
-        })
+            # Salva o total da venda.
+            sale.total_amount = total
+            sale.save(update_fields=["total_amount"])
 
-    except (json.JSONDecodeError, TypeError, ValueError):
-        return JsonResponse({
-            "error": "Dados da venda inválidos."
-        }, status=400)
+            # Registra a entrada no caixa.
+            CashMovement.objects.create(
+                type=CashMovement.IN,
+                amount=total,
+                description=f"Venda {sale.id}",
+                sale=sale
+            )
 
-    except ProductBatch.DoesNotExist:
         return JsonResponse({
-            "error": "Lote não encontrado."
-        }, status=400)
+            "success": True,
+            "sale_id": sale.id,
+            "total_amount": str(total)
+        }, status=201)
+
+    except SaleError as exc:
+        # A exceção foi lançada dentro do atomic.
+        # Ao sair dele, o Django executa o rollback.
+        return JsonResponse({
+            "error": exc.message
+        }, status=exc.status)
+
 
 # Produtos com quantidade total e a validade mais próxima, para a tela de
 # estoque e para o aviso de exclusão bloqueada (mesma lista nos dois lugares).
@@ -224,8 +253,12 @@ def product_create(request):
         else:
             expiration_date = None
 
-        quantity = request.POST.get("quantity")
-        purchase_price = request.POST.get("purchase_price")
+        quantity = int(request.POST.get("quantity"))
+        purchase_price_text = request.POST.get(
+            "purchase_price", ""
+        ).strip().replace(",", ".")
+
+        purchase_price = Decimal(purchase_price_text)
 
         try:
             with transaction.atomic():
@@ -236,12 +269,22 @@ def product_create(request):
                     price=price,
                 )
 
-                ProductBatch.objects.create(
+
+                lote = ProductBatch.objects.create(
                     product=product,
                     batch_number=batch_number,
                     expiration_date=expiration_date,
                     quantity=quantity,
                     purchase_price=purchase_price,
+                )
+
+                
+                total = Decimal(lote.quantity) * lote.purchase_price
+
+                CashMovement.objects.create(
+                    type=CashMovement.OUT,
+                    amount=total,
+                    description=f"Compra de lote {lote.batch_number} - {product.name}",
                 )
 
             return render(
@@ -280,13 +323,15 @@ def product_edit(request, barcode):
                         "new_expiration_date", ""
                     ).strip()
 
-                    quantity = request.POST.get(
+                    quantity = int(request.POST.get(
                         "new_quantity", ""
-                    ).strip()
+                    ).strip())
 
-                    purchase_price = request.POST.get(
+                    purchase_price_text = request.POST.get(
                         "new_purchase_price", ""
-                    ).strip()
+                    ).strip().replace(",", ".")
+
+                    purchase_price = Decimal(purchase_price_text)
 
                     if expiration_date_text:
                         expiration_date = datetime.strptime(
@@ -295,7 +340,7 @@ def product_edit(request, barcode):
                     else:
                         expiration_date = None
 
-                    ProductBatch.objects.create(
+                    lote = ProductBatch.objects.create(
                         product=product,
                         batch_number=batch_number,
                         expiration_date=expiration_date,
@@ -303,6 +348,16 @@ def product_edit(request, barcode):
                         purchase_price=purchase_price,
                     )
 
+                    
+                    total = Decimal(lote.quantity) * lote.purchase_price
+
+                    CashMovement.objects.create(
+                        type=CashMovement.OUT,
+                        amount=total,
+                        description=(
+                            f"Compra de lote {lote.batch_number} - {product.name}"
+                        ),
+                    )
                 elif action == "save":
                     product.name = request.POST.get(
                         "name", ""

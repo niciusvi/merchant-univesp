@@ -3,6 +3,10 @@
 # Idempotente: roda a cada reinício sem duplicar dados (cada passo confere antes).
 set -eu
 
+# Bancos criados antes de 18/10/2026 guardam nomes antigos de migração;
+# o reparo é idempotente e precisa vir ANTES do migrate.
+python manage.py reparar_historico_migracoes
+
 # Cria/atualiza as tabelas no volume /data (banco novo na primeira subida).
 python manage.py migrate --noinput
 

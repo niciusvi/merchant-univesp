@@ -19,6 +19,18 @@ def product_to_dict(p):
         "price": str(p.price),
         "min_quantity": p.min_quantity,
         "low_stock": p.quantity <= p.min_quantity,
+        "batches": [
+            {
+                "batch_number": batch.batch_number,
+                "expiration_date": (
+                    batch.expiration_date.isoformat()
+                    if batch.expiration_date
+                    else None
+                ),
+                "quantity": batch.quantity,
+            }
+            for batch in p.batches.all()
+        ],
     }
 
 

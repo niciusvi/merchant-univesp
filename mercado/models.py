@@ -12,7 +12,7 @@ class Product(models.Model):
     @property
     def quantity(self):
         return sum(batch.quantity for batch in self.batches.all())
-    min_quantity = models.PositiveIntegerField(default=0)
+    min_quantity = models.PositiveIntegerField(default=5)
 
     def __str__(self):
         return self.name
