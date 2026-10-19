@@ -76,6 +76,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     # Toda tela e a API exigem login; exceções levam @login_not_required.
     'django.contrib.auth.middleware.LoginRequiredMiddleware',
+    # Logado, mas é a conta técnica do Django (sem perfil do mercado)? Tela de sem acesso.
+    'mercado.middleware.ExigirPerfilDoMercadoMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -92,6 +94,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # Expõe administrador_do_mercado aos templates (link Usuários).
+                'mercado.context_processors.papel_do_mercado',
             ],
         },
     },

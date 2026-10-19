@@ -5,7 +5,12 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
-from mercado.tests.apoio import SENHA_DE_TESTE, criar_usuario, entrar_como_usuario
+from mercado.tests.apoio import (
+    SENHA_DE_TESTE,
+    criar_superusuario_django,
+    criar_usuario,
+    entrar_como_usuario,
+)
 
 NOVA_SENHA = "senha-nova-bem-forte-789"
 
@@ -45,6 +50,8 @@ class AdministradorTest(TestCase):
         self.assertRedirects(resposta, reverse("usuarios"))
         carlos = User.objects.get(username="carlos")
         self.assertFalse(carlos.is_superuser)
+        self.assertFalse(carlos.is_staff)
+        self.assertFalse(carlos.perfil_mercado.administrador)
         self.assertIsNotNone(authenticate(username="carlos", password=NOVA_SENHA))
 
     def test_cria_outro_administrador_quando_marcado(self) -> None:
@@ -56,8 +63,10 @@ class AdministradorTest(TestCase):
         }
         self.client.post(reverse("usuario_novo"), dados)
         socia = User.objects.get(username="socia")
-        self.assertTrue(socia.is_superuser)
-        self.assertTrue(socia.is_staff)
+        # Administrador do MERCADO: papel no perfil, sem poderes no /admin/ do Django.
+        self.assertTrue(socia.perfil_mercado.administrador)
+        self.assertFalse(socia.is_superuser)
+        self.assertFalse(socia.is_staff)
 
     def test_senhas_diferentes_nao_criam_usuario(self) -> None:
         dados = {
@@ -96,3 +105,20 @@ class AdministradorTest(TestCase):
     def test_desativar_exige_post(self) -> None:
         url = reverse("usuario_ativo", kwargs={"usuario_id": self.joana.id})
         self.assertEqual(self.client.get(url).status_code, 405)
+
+
+class ContaTecnicaForaDaGestaoTest(TestCase):
+    def setUp(self) -> None:
+        entrar_como_usuario(self.client, administrador=True)
+        self.tecnico = criar_superusuario_django()
+
+    def test_conta_tecnica_nao_aparece_na_lista(self) -> None:
+        self.assertNotContains(
+            self.client.get(reverse("usuarios")), self.tecnico.username
+        )
+
+    def test_conta_tecnica_nao_e_editavel_pelo_painel(self) -> None:
+        senha = reverse("usuario_senha", kwargs={"usuario_id": self.tecnico.id})
+        ativo = reverse("usuario_ativo", kwargs={"usuario_id": self.tecnico.id})
+        self.assertEqual(self.client.get(senha).status_code, 404)
+        self.assertEqual(self.client.post(ativo).status_code, 404)

@@ -26,6 +26,9 @@ services:
       DJANGO_SUPERUSER_USERNAME: ${DJANGO_SUPERUSER_USERNAME:-}
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD:-}
       DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
+      # Administrador do painel do mercado (conta separada da técnica acima).
+      MERCADO_ADMIN_USUARIO: ${MERCADO_ADMIN_USUARIO:-}
+      MERCADO_ADMIN_SENHA: ${MERCADO_ADMIN_SENHA:-}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
       TZ: ${TZ:-America/Sao_Paulo}
     ports:

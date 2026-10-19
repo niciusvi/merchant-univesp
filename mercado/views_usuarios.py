@@ -1,20 +1,24 @@
-"""Login, troca de senha e gestão de usuários.
+"""Login, troca de senha e gestão de usuários do mercado.
 
-Todas as telas do app exigem login (``LoginRequiredMiddleware`` no settings);
-as de ``/usuarios/`` exigem também o papel de administrador
-(``exigir_administrador``). Usuário desativado não entra, mas o histórico
-dele continua no banco: por isso não existe "excluir".
+Todas as telas exigem login (``LoginRequiredMiddleware``) e perfil do mercado
+(``ExigirPerfilDoMercadoMiddleware``); as de ``/usuarios/`` exigem também o
+papel de administrador (``exigir_administrador``). A lista e as ações só
+alcançam usuários com perfil: a conta técnica do Django fica invisível aqui.
+Usuário desativado não entra, mas o histórico dele fica: não existe "excluir".
 """
 
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.decorators import login_not_required
 from django.contrib.auth.forms import SetPasswordForm
 from django.contrib.auth.models import User
 from django.contrib.auth.views import LoginView, LogoutView, PasswordChangeView
 from django.contrib.messages.views import SuccessMessageMixin
+from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
 
 from .autorizacao import exigir_administrador
@@ -28,6 +32,8 @@ class TelaDeLogin(LoginView):
     redirect_authenticated_user = True
 
 
+# login_not_required: a conta técnica, sem perfil, também precisa conseguir sair.
+@method_decorator(login_not_required, name="dispatch")
 class Sair(LogoutView):
     """``POST /sair/``. GET não encerra a sessão (proteção contra link malicioso)."""
 
@@ -42,19 +48,23 @@ class TrocarMinhaSenha(SuccessMessageMixin, PasswordChangeView):
     success_message = "Senha alterada."
 
 
+def usuarios_do_mercado() -> QuerySet[User]:
+    """Só quem tem perfil: a conta técnica do Django não aparece nem é editável aqui."""
+    return User.objects.filter(perfil_mercado__isnull=False).select_related(
+        "perfil_mercado"
+    )
+
+
 @exigir_administrador
 def listar_usuarios(request: HttpRequest) -> HttpResponse:
-    """``GET /usuarios/``: lista com papel, situação e ações.
-
-    Exemplo: link "Usuários" no cabeçalho, visível só para administradores.
-    """
-    usuarios = User.objects.order_by("username")
+    """``GET /usuarios/``: lista com papel, situação e ações."""
+    usuarios = usuarios_do_mercado().order_by("username")
     return render(request, "usuarios/lista.html", {"usuarios": usuarios})
 
 
 @exigir_administrador
 def criar_usuario(request: HttpRequest) -> HttpResponse:
-    """``GET/POST /usuarios/novo/``: cadastro de usuário pelo administrador."""
+    """``GET/POST /usuarios/novo/``: cadastro de usuário do mercado pelo administrador."""
     formulario = FormularioNovoUsuario(request.POST or None)
     if request.method == "POST" and formulario.is_valid():
         usuario = formulario.save()
@@ -66,7 +76,7 @@ def criar_usuario(request: HttpRequest) -> HttpResponse:
 @exigir_administrador
 def definir_senha_usuario(request: HttpRequest, usuario_id: int) -> HttpResponse:
     """``GET/POST /usuarios/<id>/senha/``: administrador define nova senha sem saber a atual."""
-    usuario = get_object_or_404(User, pk=usuario_id)
+    usuario = get_object_or_404(usuarios_do_mercado(), pk=usuario_id)
     formulario = SetPasswordForm(usuario, request.POST or None)
     if request.method == "POST" and formulario.is_valid():
         formulario.save()
@@ -83,7 +93,7 @@ def definir_senha_usuario(request: HttpRequest, usuario_id: int) -> HttpResponse
 @require_POST
 def alternar_ativo_usuario(request: HttpRequest, usuario_id: int) -> HttpResponse:
     """``POST /usuarios/<id>/ativo/``: desativa ou reativa o usuário."""
-    usuario = get_object_or_404(User, pk=usuario_id)
+    usuario = get_object_or_404(usuarios_do_mercado(), pk=usuario_id)
     if usuario == request.user:
         messages.error(request, "Você não pode desativar a si mesmo.")
         return redirect("usuarios")

@@ -129,7 +129,7 @@
                     {{ usuario.username }}
                     {% if usuario == user %}<small>(você)</small>{% endif %}
                 </td>
-                <td>{% if usuario.is_superuser %}Administrador{% else %}Usuário{% endif %}</td>
+                <td>{% if usuario.perfil_mercado.administrador %}Administrador{% else %}Usuário{% endif %}</td>
                 <td>{% if usuario.is_active %}Ativo{% else %}Inativo{% endif %}</td>
                 <td>
                     <div class="row-actions">

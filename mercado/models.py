@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -78,3 +79,26 @@ class CashMovement(models.Model):
 
     def __str__(self):
         return f"{self.get_type_display()} R${self.amount}"
+
+
+class PerfilDeAcesso(models.Model):
+    """Quem usa o painel do mercado e com que papel.
+
+    Separa os usuários do mercado da conta técnica do Django (``is_superuser``,
+    só para ``/admin/``). Usuário sem perfil não abre o painel; usuário com
+    perfil nunca é staff nem superuser. O papel de administrador fica aqui.
+    """
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="perfil_mercado"
+    )
+    administrador = models.BooleanField(default=False, verbose_name="Administrador do mercado")
+    criado_em = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Perfil de acesso"
+        verbose_name_plural = "Perfis de acesso"
+
+    def __str__(self) -> str:
+        papel = "administrador" if self.administrador else "usuário"
+        return f"{self.usuario.username} ({papel})"

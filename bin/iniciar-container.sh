@@ -14,8 +14,11 @@ python manage.py migrate --noinput
 # se o banco estiver vazio.
 python manage.py semear_dados_iniciais
 
-# Admin a partir de DJANGO_SUPERUSER_*; não faz nada se faltar variável ou já existir.
+# Conta técnica do Django (/admin/) a partir de DJANGO_SUPERUSER_*; e o
+# administrador do MERCADO a partir de MERCADO_ADMIN_*. Nenhum dos dois faz
+# nada se faltar variável ou se o usuário já existir.
 python manage.py criar_admin_inicial
+python manage.py criar_administrador_do_mercado
 
 # `exec` troca o shell pelo gunicorn: o contêiner recebe SIGTERM direto no
 # servidor e para rápido. PORT vem do Cloud Run; na stack fica 8000.

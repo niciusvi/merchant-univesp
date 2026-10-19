@@ -324,7 +324,7 @@
         <div class="user-bar">
             <span>{{ user.username }}</span>
             <a href="{% url 'senha_propria' %}">Minha senha</a>
-            {% if user.is_superuser %}<a href="{% url 'usuarios' %}">Usuários</a>{% endif %}
+            {% if administrador_do_mercado %}<a href="{% url 'usuarios' %}">Usuários</a>{% endif %}
             {# Sair é POST: um link GET poderia ser disparado por outro site. #}
             <form method="post" action="{% url 'sair' %}">
                 {% csrf_token %}

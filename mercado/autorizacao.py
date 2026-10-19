@@ -1,9 +1,11 @@
-"""Quem pode administrar usuários.
+"""Quem é usuário do mercado e quem é administrador.
 
-Regra do projeto: só quem é administrador (``is_superuser``) cria usuários e
-troca a senha dos outros. O primeiro administrador nasce das variáveis
-``DJANGO_SUPERUSER_*`` (comando ``criar_admin_inicial``); os demais são
-criados por ele na tela de usuários.
+Duas contas convivem no mesmo ``auth_user`` do Django:
+
+- **conta técnica** (``is_superuser``/``is_staff``), criada por ``DJANGO_SUPERUSER_*``,
+  só entra em ``/admin/``;
+- **usuários do mercado**, com ``PerfilDeAcesso``, usam o painel; o papel de
+  administrador está no perfil (``administrador=True``), nunca em ``is_superuser``.
 
 Exemplo::
 
@@ -20,23 +22,42 @@ from django.contrib.auth.models import AbstractBaseUser, AnonymousUser
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 
+from .models import PerfilDeAcesso
+
+
+def perfil_do_mercado(
+    usuario: AbstractBaseUser | AnonymousUser,
+) -> PerfilDeAcesso | None:
+    """Perfil do mercado do usuário, ou ``None`` (anônimo ou conta técnica).
+
+    Exemplo: ``perfil_do_mercado(request.user)``.
+    """
+    # Sem perfil, o Django levanta RelatedObjectDoesNotExist (um AttributeError):
+    # o getattr com padrão cobre esse caso e o do AnonymousUser.
+    return getattr(usuario, "perfil_mercado", None)
+
+
+def tem_acesso_ao_painel(usuario: AbstractBaseUser | AnonymousUser) -> bool:
+    """``True`` só para usuário do mercado (com perfil)."""
+    return perfil_do_mercado(usuario) is not None
+
 
 def eh_administrador(usuario: AbstractBaseUser | AnonymousUser) -> bool:
-    """``True`` para usuário logado marcado como ``is_superuser``.
+    """``True`` para usuário do mercado com ``administrador=True`` no perfil.
 
     Exemplo: ``eh_administrador(request.user)``.
     """
-    return bool(getattr(usuario, "is_superuser", False))
+    perfil = perfil_do_mercado(usuario)
+    return perfil is not None and perfil.administrador
 
 
 def exigir_administrador(
     view: Callable[..., HttpResponse],
 ) -> Callable[..., HttpResponse]:
-    """Decorator de view: responde 403 a quem não é administrador.
+    """Decorator de view: responde 403 a quem não é administrador do mercado.
 
     403 e não redirecionamento para o login: a pessoa já está logada (o
     ``LoginRequiredMiddleware`` garante), só não tem o papel.
-    Exemplo: ver docstring do módulo.
     """
 
     @wraps(view)
@@ -44,7 +65,9 @@ def exigir_administrador(
         request: HttpRequest, *args: object, **kwargs: object
     ) -> HttpResponse:
         if not eh_administrador(request.user):
-            raise PermissionDenied("Apenas administradores gerenciam usuários.")
+            raise PermissionDenied(
+                "Apenas administradores do mercado gerenciam usuários."
+            )
         return view(request, *args, **kwargs)
 
     return protegida
