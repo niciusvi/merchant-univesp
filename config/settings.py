@@ -50,6 +50,10 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # Toda tela e a API exigem login; exceções levam @login_not_required.
+    'django.contrib.auth.middleware.LoginRequiredMiddleware',
+    # Logado, mas é a conta técnica do Django (sem perfil do mercado)? Tela de sem acesso.
+    'mercado.middleware.ExigirPerfilDoMercadoMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -66,6 +70,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                # Expõe administrador_do_mercado aos templates (link Usuários).
+                'mercado.context_processors.papel_do_mercado',
             ],
         },
     },
@@ -129,3 +135,11 @@ MAILERS = {
         'BACKEND': 'django.core.mail.backends.console.EmailBackend',
     },
 }
+
+
+# Login obrigatório (LoginRequiredMiddleware). Sessão de 30 dias: o celular do
+# mercado não pede senha todo dia; 'Sair' encerra quando quiser.
+LOGIN_URL = 'entrar'
+LOGIN_REDIRECT_URL = 'painel'
+LOGOUT_REDIRECT_URL = 'entrar'
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
